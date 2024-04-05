@@ -14,9 +14,6 @@ export function Header() {
                 <NavLink href="/eventos"> 
                     Participantes
                 </NavLink>
-                <NavLink href="/eventos"> 
-                    Link 3
-                </NavLink>
             </nav>
         </div>
     )

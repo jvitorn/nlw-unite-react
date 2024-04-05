@@ -1,46 +1,105 @@
+// React
+import { ChangeEvent, useEffect, useState } from "react"
+// Icons
 import { ChevronLeft, ChevronsLeft, ChevronRight, ChevronsRight, MoreHorizontal, Search } from "lucide-react"
-
+// Libs
 import dayjs from "dayjs"
 import 'dayjs/locale/pt-br'
 import relativeTime from 'dayjs/plugin/relativeTime'
-
+// Components
 import { IconButton } from "./icon-button"
 import { Table } from "./table/table"
 import { TableHeader } from "./table/table-header"
 import { TableCell } from "./table/table-cell"
 import { TableRow } from "./table/table-row"
-import { ChangeEvent, useState } from "react"
-import { attendees } from "../data/attendees"
-
-
+// Dayjs
 dayjs.extend(relativeTime)
 dayjs.locale('pt-br')
+// Interface from attendees props
+interface Attendee {
+    id: string,
+    name: string,
+    email: string,
+    createdAt: string,
+    checkedInAt: string | null
+}
 
 export function AttendeeList() {
 
-    const [searchInput, setSearchInput] = useState('')
-    const [page, setPage] = useState(1)
+    const [searchInput, setSearchInput] = useState(() => {
+        const url = new URL(window.location.toString());
+    
+        if (url.searchParams.has("search")) return url.searchParams.get("search") ?? "";
+        
+        return "";
+      });
+    // url state
+    const [page, setPage] = useState(() => {
+        const url = new URL(window.location.toString())
 
-    const totalPages = Math.ceil(attendees.length / 10)
+        if (url.searchParams.has('page')) return Number(url.searchParams.get('page'))
+
+        return 1
+    })
+
+    function setCurrentSearch(search: string) {
+        const url = new URL(window.location.toString())
+        url.searchParams.set('search', search)
+
+        window.history.pushState({}, "", url)
+
+        setSearchInput(search)
+
+    }
+
+    const [attendees, setAttendees] = useState<Attendee[]>([])
+    const [totalAttendees, setTotalAttendees] = useState(0)
+
+    useEffect(() => {
+        const url = new URL('http://localhost:3333/events/9e9bd979-9d10-4915-b339-3786b1634f33/attendees')
+
+        url.searchParams.set('pageIndex', String(page - 1))
+
+        if (searchInput.length > 1) url.searchParams.set("query", searchInput);
+
+        fetch(url)
+            .then(resp => resp.json())
+            .then(data => {
+                setAttendees(data.attendees)
+                setTotalAttendees(data.total)
+            })
+    }, [page, searchInput])
+
+    const totalPages = Math.ceil(totalAttendees / 10)
 
     function onSearchInputChanged(event: ChangeEvent<HTMLInputElement>) {
-
-        setSearchInput(event.target.value)
+        setCurrentSearch(event.target.value)
+        setCurrentPage(1)
     }
     function goToFirstPage() {
-        setPage(1)
+        setCurrentPage(1)
     }
     function goToLastPage() {
-
-        setPage(totalPages)
+        setCurrentPage(totalPages)
     }
     function goToNextPage() {
+        setCurrentPage(page + 1)
 
-        setPage(page + 1)
     }
     function goToPreviousPage() {
+        setCurrentPage(page - 1)
 
-        setPage(page - 1)
+
+    }
+
+    function setCurrentPage(page: number) {
+        const url = new URL(window.location.toString())
+
+        url.searchParams.set('page', String(page))
+
+        window.history.pushState({}, "", url)
+
+        setPage(page)
     }
 
     return (
@@ -50,10 +109,13 @@ export function AttendeeList() {
                 <h1 className="text-2xl font-bold">Participantes</h1>
                 <div className="px-3 w-72 py-1.5 border border-white/10 rounded-lg text-sm flex items-center gap-3">
                     <Search className="size-4 text-emerald-300" />
-                    <input onChange={onSearchInputChanged} className="bg-transparent flex-1 outline-none h-auto border-0 p-0 text-sm ring-0" placeholder="Buscar participante..." />
+                    <input onChange={onSearchInputChanged}
+                        className="bg-transparent flex-1 outline-none h-auto border-0 p-0 text-sm focus:ring-0"
+                        placeholder="Buscar participante..."
+                        value={searchInput}
+                    />
                 </div>
             </div>
-            {searchInput}
             {/* Table of contents */}
             <Table>
                 <thead>
@@ -69,7 +131,7 @@ export function AttendeeList() {
                     </tr>
                 </thead>
                 <tbody>
-                    {attendees.slice((page - 1) * 10, page * 10).map((attendee) => {
+                    {attendees.map((attendee) => {
                         return (
                             <TableRow key={attendee.id} >
                                 <TableCell>
@@ -87,7 +149,11 @@ export function AttendeeList() {
                                     </div>
                                 </TableCell>
                                 <TableCell>{dayjs().to(attendee.createdAt)}</TableCell>
-                                <TableCell>{dayjs().to(attendee.checkedInAt)}</TableCell>
+                                <TableCell>{
+                                    attendee.checkedInAt === null ?
+                                        <span className="text-rose-400">Não Fez Check-In</span>
+                                        : dayjs().to(attendee.checkedInAt)}
+                                </TableCell>
                                 <TableCell>
                                     <IconButton transparent>
                                         <MoreHorizontal className="size-4" />
@@ -100,11 +166,11 @@ export function AttendeeList() {
                 <tfoot>
                     <tr>
                         <TableCell colSpan={3}>
-                            Mostrando 10 de {attendees.length} itens
+                            Mostrando {attendees.length} de {totalAttendees} itens
                         </TableCell>
                         <TableCell className="text-right" colSpan={3}>
                             <div className="inline-flex items-center gap-8">
-                                <span>Pagina {page} de {totalPages} </span>
+                                <span> Pagina {page} de {totalAttendees} </span>
                                 <div className="flex gap-1.5">
                                     <IconButton onClick={goToFirstPage} disabled={page === 1}>
                                         <ChevronsLeft className="size-4" />
